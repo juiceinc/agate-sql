@@ -61,7 +61,7 @@ def get_engine_and_connection(connection_or_string=None):
     return engine, connection
 
 
-def from_sql(cls, connection_or_string, table_name):
+def from_sql(cls, connection_or_string, table_name, schema=None, limit=0):
     """
     Create a new :class:`agate.Table` from a given SQL table. Types will be
     inferred from the database schema.
@@ -72,11 +72,21 @@ def from_sql(cls, connection_or_string, table_name):
         An existing sqlalchemy connection or connection string.
     :param table_name:
         The name of a table in the referenced database.
+    :param schema:
+        A default schema
+    :param limit:
+        Limit results to this number of rows.
     """
     engine, connection = get_engine_and_connection(connection_or_string)
 
     metadata = MetaData(connection)
-    sql_table = Table(table_name, metadata, autoload=True, autoload_with=connection)
+    kwargs = {
+        'autoload': True
+        'autoload_with': connection
+    }
+    if schema:
+        kwargs['schema'] = schema
+    sql_table = Table(table_name, metadata, **kwargs)
 
     column_names = []
     column_types = []
@@ -107,6 +117,8 @@ def from_sql(cls, connection_or_string, table_name):
             raise ValueError('Unsupported sqlalchemy column type: %s' % type(sql_column.type))
 
     s = select([sql_table])
+    if limit:
+        s = s.limit(limit)
 
     rows = connection.execute(s)
 
